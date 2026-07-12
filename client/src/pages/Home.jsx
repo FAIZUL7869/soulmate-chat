@@ -1,0 +1,616 @@
+import { FiPaperclip, FiSend, FiMic } from "react-icons/fi";
+
+import socket from "../socket/socket";
+import { useEffect, useState, useRef } from "react";
+import EmojiPicker from "emoji-picker-react";
+import API from "../services/api";
+export default function Home() {
+    const [menuOpen, setMenuOpen] = useState(null);
+    const [users, setUsers] = useState([]);
+    const [audioBlobUrl, setAudioBlobUrl] = useState(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const [audioBlob, setAudioBlob] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [text, setText] = useState("");
+    const [onlineUsers, setOnlineUsers] = useState([]);
+    const [typingUser, setTypingUser] = useState(null);
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [showEmoji, setShowEmoji] = useState(false);
+    const fileInputRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
+    const messagesEndRef = useRef(null);
+    const selectedUserRef = useRef(null);
+    const currentUser = JSON.parse(localStorage.getItem("user"));
+    useEffect(() => {
+        fetchUsers();
+
+        if ("Notification" in window && Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+    }, []);
+
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        if (!token || !user) return;
+
+        socket.connect();
+
+        socket.on("connect", () => {
+            socket.emit("join", user._id);
+        });
+
+        socket.on("receiveMessage", (newMessage) => {
+            setMessages((prev) => {
+                const exists = prev.some((msg) => msg._id === newMessage._id);
+                if (exists) return prev;
+                return [...prev, newMessage];
+            });
+
+            if (
+                Notification.permission === "granted" &&
+                document.hidden
+            ) {
+                new Notification("SoulMate Chat", {
+                    body: newMessage.text
+                        ? newMessage.text
+                        : "📷 Image received",
+                });
+            }
+
+            socket.emit("messageDelivered", {
+                messageId: newMessage._id,
+                senderId: newMessage.sender,
+            });
+
+            if (newMessage.sender === selectedUserRef.current?._id) {
+                const token = localStorage.getItem("token");
+
+                API.patch(
+                    `/messages/seen/${newMessage._id}`,
+                    {},
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
+            }
+        });
+        socket.on("onlineUsers", (users) => {
+            console.log("Online Users:", users);
+            setOnlineUsers(users);
+        });
+        socket.on("typing", (senderId) => {
+            console.log("Typing received:", senderId);
+            setTypingUser(senderId);
+        });
+
+        socket.on("stopTyping", () => {
+            setTypingUser(null);
+        });
+        socket.on("messageDelivered", (data) => {
+            console.log("✅ messageDelivered event:", data);
+
+            setMessages((prev) => {
+                console.log("Current messages:", prev);
+
+                return prev.map((msg) => {
+                    console.log("Comparing:", msg._id, "==", data.messageId);
+
+                    if (msg._id === data.messageId) {
+                        console.log("MATCH FOUND!");
+
+                        return {
+                            ...msg,
+                            delivered: true,
+                        };
+                    }
+
+                    return msg;
+                });
+            });
+        });
+        socket.on("messageSeen", async () => {
+            console.log("💜 Seen event received");
+
+            if (selectedUserRef.current) {
+                const token = localStorage.getItem("token");
+
+                const res = await API.get(
+                    `/messages/${selectedUserRef.current._id}`,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                    }
+                );
+
+                setMessages(res.data);
+            }
+        });
+        socket.on("messageDeleted", ({ messageId }) => {
+            setMessages((prev) =>
+                prev.filter((msg) => msg._id !== messageId)
+            );
+        });
+        return () => {
+            socket.off("connect");
+            socket.off("receiveMessage");
+            socket.off("onlineUsers");
+            socket.off("typing");
+            socket.off("stopTyping");
+            socket.off("messageDelivered");
+            socket.off("messageSeen");
+            socket.off("messageDeleted");
+            socket.disconnect();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (selectedUser) {
+            fetchMessages();
+        }
+    }, [selectedUser]);
+    useEffect(() => {
+        selectedUserRef.current = selectedUser;
+    }, [selectedUser]);
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({
+            behavior: "smooth",
+        });
+    }, [messages]);
+    const fetchUsers = async () => {
+        try {
+            const token = localStorage.getItem("token");
+
+            const res = await API.get("/chat/users", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            setUsers(res.data);
+
+            if (res.data.length > 0) {
+                setSelectedUser(res.data[0]);
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
+    const fetchMessages = async () => {
+        console.log("📥 fetchMessages called");
+        try {
+            const token = localStorage.getItem("token");
+
+            const res = await API.get(`/messages/${selectedUser._id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            setMessages(res.data);
+            console.log("Messages fetched:", res.data);
+            res.data.forEach(async (msg) => {
+                if (msg.sender === selectedUser._id && !msg.seen) {
+                    await API.patch(
+                        `/messages/seen/${msg._id}`,
+                        {},
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`,
+                            },
+                        }
+                    );
+                }
+            });
+        } catch (error) {
+            console.log(error);
+        }
+    };
+    const deleteMessage = async (messageId) => {
+        try {
+            const token = localStorage.getItem("token");
+
+            await API.delete(`/messages/${messageId}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            setMessages((prev) =>
+                prev.filter((msg) => msg._id !== messageId)
+            );
+
+        } catch (error) {
+            console.log("Delete Error:", error);
+        }
+    };
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+            });
+
+            const recorder = new MediaRecorder(stream);
+
+            mediaRecorderRef.current = recorder;
+            audioChunksRef.current = [];
+
+            recorder.ondataavailable = (event) => {
+                audioChunksRef.current.push(event.data);
+            };
+
+            recorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, {
+                    type: "audio/webm",
+                });
+
+                const url = URL.createObjectURL(audioBlob);
+
+                setAudioBlobUrl(url);
+                setIsRecording(false);
+
+                stream.getTracks().forEach((track) => {
+                    track.stop();
+                });
+            };
+
+            recorder.start();
+
+            setIsRecording(true);
+
+        } catch (err) {
+            console.log("MIC ERROR:", err);
+            alert("Microphone access failed");
+        }
+    };
+
+
+    const stopRecording = () => {
+        if (
+            mediaRecorderRef.current &&
+            mediaRecorderRef.current.state === "recording"
+        ) {
+            mediaRecorderRef.current.stop();
+        }
+    };
+    const sendMessage = async () => {
+        if (!text.trim() && !selectedImage) return;
+        console.log("1. sendMessage started");
+        try {
+            const token = localStorage.getItem("token");
+
+            const formData = new FormData();
+
+            formData.append("receiver", selectedUser._id);
+            formData.append("text", text);
+
+            if (selectedImage) {
+                formData.append("image", selectedImage);
+            }
+            console.log("Selected Image:", selectedImage);
+            console.log("Image in FormData:", formData.get("image"));
+            console.log("2. Before API");
+            const res = await API.post(
+                "/messages",
+                formData,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "multipart/form-data",
+                    },
+                }
+            );
+            console.log("3. API Response", res);
+            setMessages((prev) => [...prev, res.data.data]);
+            console.log("4. Message added");
+            setText("");
+            setSelectedImage(null);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+            console.log("5. Cleared");
+        } catch (error) {
+            console.log("❌ Error:", error);
+            console.log("❌ Response:", error.response);
+        }
+    };
+    return (
+        <div className="h-screen bg-slate-100 flex">
+
+            {/* Sidebar */}
+            <div className="w-[320px] bg-white shadow-lg flex flex-col">
+
+                <div className="p-5 border-b">
+                    <h1 className="text-2xl font-bold text-blue-700">
+                        SoulMate Chat
+                    </h1>
+
+                    <p className="text-gray-500 text-sm mt-1">
+                        Chats
+                    </p>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                    {users.map((user) => (
+                        <div
+                            key={user._id}
+                            onClick={() => setSelectedUser(user)}
+                            className={`flex items-center gap-3 p-4 border-b cursor-pointer transition ${selectedUser?._id === user._id
+                                ? "bg-blue-100"
+                                : "hover:bg-slate-100"
+                                }`}
+                        >
+                            <img
+                                src={
+                                    user.profilePic ||
+                                    `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`
+                                }
+                                alt={user.name}
+                                className="w-12 h-12 rounded-full object-cover"
+                            />
+
+                            <div>
+                                <h2 className="font-semibold">{user.name}</h2>
+
+                                <p
+                                    className={`text-sm ${onlineUsers.includes(user._id)
+                                        ? "text-green-600"
+                                        : "text-gray-500"
+                                        }`}
+                                >
+                                    {onlineUsers.includes(user._id)
+                                        ? "🟢 Online"
+                                        : "⚫ Offline"}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Chat Area */}
+            <div className="flex-1 flex flex-col">
+
+                <div className="bg-white shadow p-5">
+                    <h2 className="font-bold text-xl">
+                        {selectedUser ? selectedUser.name : "Select a user"}
+                    </h2>
+
+                    {selectedUser && (
+                        <p
+                            className={`text-sm ${typingUser === selectedUser._id
+                                ? "text-blue-600"
+                                : onlineUsers.includes(selectedUser._id)
+                                    ? "text-green-600"
+                                    : "text-gray-500"
+                                }`}
+                        >
+                            {typingUser === selectedUser._id
+                                ? "Typing..."
+                                : onlineUsers.includes(selectedUser._id)
+                                    ? "🟢 Online"
+                                    : "⚫ Offline"}
+                        </p>
+                    )}
+                </div>
+
+                <div className="flex-1 p-6 overflow-y-auto space-y-3">
+                    {messages.length === 0 ? (
+                        <p className="text-center text-gray-400 mt-10">
+                            No messages yet.
+                        </p>
+                    ) : (
+                        messages.map((msg) => (
+                            <div
+                                key={msg._id}
+                                className={`flex ${msg.sender === currentUser._id
+                                    ? "justify-end"
+                                    : "justify-start"
+                                    }`}
+                            >
+                                <div
+                                    className={`max-w-[70%] px-4 py-2 rounded-2xl ${msg.sender === currentUser._id
+                                        ? "bg-blue-600 text-white"
+                                        : "bg-white shadow"
+                                        }`}
+                                >
+                                    {msg.image && (
+                                        <img
+                                            src={msg.image}
+                                            alt="Shared"
+                                            className="w-56 rounded-lg mb-2"
+                                        />
+                                    )}
+
+                                    {msg.text && <p>{msg.text}</p>}
+
+                                    {msg.sender === currentUser._id && (
+                                        <>
+                                            <div className="text-xs mt-2 text-right">
+                                                {!msg.delivered ? (
+                                                    <span className="text-green-400">✓ Sent</span>
+                                                ) : !msg.seen ? (
+                                                    <span className="text-black">✓✓ Delivered</span>
+                                                ) : (
+                                                    <span className="text-violet-400">✓✓ Seen</span>
+                                                )}
+                                            </div>
+
+                                            <div className="relative mt-1">
+
+                                                <button
+                                                    onClick={() =>
+                                                        setMenuOpen(menuOpen === msg._id ? null : msg._id)
+                                                    }
+                                                    className="text-gray-400 hover:text-white text-lg"
+                                                >
+                                                    ⋮
+                                                </button>
+
+                                                {menuOpen === msg._id && (
+                                                    <div className="absolute right-0 mt-1 bg-white rounded-lg shadow-lg z-50 min-w-[150px]">
+
+                                                        <button
+                                                            onClick={() => {
+                                                                deleteMessage(msg._id);
+                                                                setMenuOpen(null);
+                                                            }}
+                                                            className="w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
+                                                        >
+                                                            🗑️ Delete
+                                                        </button>
+
+                                                    </div>
+                                                )}
+
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                    <div ref={messagesEndRef}></div>
+
+                </div>
+                {selectedImage && (
+                    <div className="bg-white border-t border-gray-200 px-5 py-3">
+
+                        <div className="relative inline-block">
+
+                            <img
+                                src={URL.createObjectURL(selectedImage)}
+                                alt="Preview"
+                                className="w-48 h-48 object-cover rounded-xl shadow"
+                            />
+
+                            <button
+                                onClick={() => {
+                                    setSelectedImage(null);
+
+                                    if (fileInputRef.current) {
+                                        fileInputRef.current.value = "";
+                                    }
+                                }}
+                                className="absolute top-2 right-2 bg-black/70 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center transition"
+                            >
+                                ✕
+                            </button>
+
+                        </div>
+
+                        <p className="text-gray-500 text-sm mt-2">
+                            Ready to send
+                        </p>
+
+                    </div>
+                )}
+                {showEmoji && (
+                    <div className="absolute bottom-24 left-5 z-50">
+                        <EmojiPicker
+                            onEmojiClick={(emojiData) => {
+                                setText((prev) => prev + emojiData.emoji);
+                                setShowEmoji(false);
+                            }}
+                        />
+                    </div>
+                )}
+                {audioBlobUrl && (
+                    <div className="bg-gray-100 p-3 rounded-lg mx-4 mb-2 flex items-center gap-3">
+                        <audio controls src={audioBlobUrl} className="flex-1"></audio>
+
+                        <button
+                            onClick={() => setAudioBlobUrl(null)}
+                            className="text-red-500 font-bold"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                )}
+                <div className="bg-white p-4 flex items-center gap-3 border-t shadow-sm">
+                    <button
+                        onClick={() => fileInputRef.current.click()}
+                        className="text-2xl text-gray-600 hover:text-blue-600 transition"
+                    >
+                        <FiPaperclip />
+                    </button>
+                    <button
+                        onClick={() => setShowEmoji(!showEmoji)}
+                        className="text-2xl hover:text-yellow-500 transition"
+                    >
+                        😊
+                    </button>
+                    <input
+                        type="text"
+                        placeholder="Type your message..."
+                        value={text}
+                        onChange={(e) => {
+                            setText(e.target.value);
+
+                            const user = JSON.parse(localStorage.getItem("user"));
+
+                            socket.emit("typing", {
+                                senderId: user._id,
+                                receiverId: selectedUser._id,
+                            });
+
+                            clearTimeout(window.typingTimeout);
+
+                            window.typingTimeout = setTimeout(() => {
+                                socket.emit("stopTyping", {
+                                    senderId: user._id,
+                                    receiverId: selectedUser._id,
+                                });
+                            }, 1000);
+                        }}
+                        className="flex-1 border rounded-full px-5 py-3 outline-none focus:border-blue-600"
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                sendMessage();
+                            }
+                        }}
+                    />
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                            if (e.target.files[0]) {
+                                setSelectedImage(e.target.files[0]);
+                            }
+                        }}
+                    />
+                    <button
+                        onClick={() => {
+                            if (isRecording) {
+                                stopRecording();
+                            } else {
+                                startRecording();
+                            }
+                        }}
+                        className={`text-2xl ${isRecording ? "text-red-600" : "text-gray-500"
+                            }`}
+                    >
+                        <FiMic />
+                    </button>
+                    <button
+                        onClick={sendMessage}
+                        className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full flex items-center justify-center transition shadow transition"
+                    >
+                        <FiSend size={20} />
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+    );
+}
