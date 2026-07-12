@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://192.168.1.6:5000");
+const socket = io("https://soulmate-chat-server.onrender.com");
 
 export default socket;
