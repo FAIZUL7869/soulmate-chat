@@ -13,8 +13,31 @@ const sendMessage = async (req, res) => {
         console.log("2. Before Cloudinary");
 
         let imageUrl = "";
+        let voiceUrl = "";
 
-        if (req.file) {
+        if (req.file && req.file.mimetype.startsWith("image")) {
+            if (req.file && req.file.mimetype.startsWith("audio")) {
+
+                voiceUrl = await new Promise((resolve, reject) => {
+
+                    const stream = cloudinary.uploader.upload_stream(
+                        {
+                            resource_type: "video",
+                            folder: "soulmate-chat/voice-notes",
+                        },
+                        (error, result) => {
+
+                            if (error) return reject(error);
+
+                            resolve(result.secure_url);
+                        }
+                    );
+
+                    streamifier.createReadStream(req.file.buffer).pipe(stream);
+
+                });
+
+            }
             console.log("3. Image found");
 
             imageUrl = await new Promise((resolve, reject) => {
@@ -50,6 +73,7 @@ const sendMessage = async (req, res) => {
             receiver,
             text: text || "",
             image: imageUrl,
+            voice: voiceUrl,
             delivered: false,
             seen: false,
         });

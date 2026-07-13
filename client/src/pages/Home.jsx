@@ -271,6 +271,8 @@ export default function Home() {
                     type: "audio/webm",
                 });
 
+                setAudioBlob(audioBlob);
+
                 const url = URL.createObjectURL(audioBlob);
 
                 setAudioBlobUrl(url);
@@ -310,9 +312,16 @@ export default function Home() {
             formData.append("receiver", selectedUser._id);
             formData.append("text", text);
 
-            if (selectedImage) {
-                formData.append("image", selectedImage);
-            }
+            const audioBlob = new Blob(audioChunksRef.current, {
+                type: "audio/webm",
+            });
+
+            setAudioBlob(audioBlob);
+
+            const url = URL.createObjectURL(audioBlob);
+
+            setAudioBlobUrl(url);
+            setIsRecording(false);
             console.log("Selected Image:", selectedImage);
             console.log("Image in FormData:", formData.get("image"));
             console.log("2. Before API");
@@ -331,6 +340,8 @@ export default function Home() {
             console.log("4. Message added");
             setText("");
             setSelectedImage(null);
+            setAudioBlob(null);
+            setAudioBlobUrl(null);
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
             }
@@ -445,6 +456,14 @@ export default function Home() {
                                             src={msg.image}
                                             alt="Shared"
                                             className="w-56 rounded-lg mb-2"
+                                        />
+                                    )}
+
+                                    {msg.voice && (
+                                        <audio
+                                            controls
+                                            src={msg.voice}
+                                            className="w-64 mb-2"
                                         />
                                     )}
 
