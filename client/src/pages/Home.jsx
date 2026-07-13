@@ -386,7 +386,6 @@ export default function Home() {
 
                             <div>
                                 <h2 className="font-semibold">{user.name}</h2>
-                                const sendM
                                 <p
                                     className={`text-sm ${onlineUsers.includes(user._id)
                                         ? "text-green-600"
