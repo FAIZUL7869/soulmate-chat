@@ -302,7 +302,8 @@ export default function Home() {
         }
     };
     const sendMessage = async () => {
-        if (!text.trim() && !selectedImage) return;
+        console.log("🚀 Send button clicked");
+        if (!text.trim() && !selectedImage && !audioBlob) return;
         console.log("1. sendMessage started");
         try {
             const token = localStorage.getItem("token");
@@ -312,16 +313,13 @@ export default function Home() {
             formData.append("receiver", selectedUser._id);
             formData.append("text", text);
 
-            const audioBlob = new Blob(audioChunksRef.current, {
-                type: "audio/webm",
-            });
+            if (selectedImage) {
+                formData.append("image", selectedImage);
+            }
 
-            setAudioBlob(audioBlob);
-
-            const url = URL.createObjectURL(audioBlob);
-
-            setAudioBlobUrl(url);
-            setIsRecording(false);
+            if (audioBlob) {
+                formData.append("image", audioBlob, "voice.webm");
+            }
             console.log("Selected Image:", selectedImage);
             console.log("Image in FormData:", formData.get("image"));
             console.log("2. Before API");
@@ -388,7 +386,7 @@ export default function Home() {
 
                             <div>
                                 <h2 className="font-semibold">{user.name}</h2>
-
+                                const sendM
                                 <p
                                     className={`text-sm ${onlineUsers.includes(user._id)
                                         ? "text-green-600"
