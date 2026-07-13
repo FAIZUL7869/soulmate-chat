@@ -323,6 +323,9 @@ export default function Home() {
             console.log("Selected Image:", selectedImage);
             console.log("Image in FormData:", formData.get("image"));
             console.log("2. Before API");
+            console.log("Audio Blob:", audioBlob);
+            console.log("Audio MIME:", audioBlob?.type);
+            console.log("File in FormData:", formData.get("image"));
             const res = await API.post(
                 "/messages",
                 formData,
