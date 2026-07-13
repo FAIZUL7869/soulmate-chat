@@ -232,12 +232,30 @@ export default function Home() {
         }
     };
     const startRecording = async () => {
+        console.log("🎤 Mic button pressed");
+
         try {
+            if (!navigator.mediaDevices) {
+                alert("navigator.mediaDevices is not supported");
+                return;
+            }
+
+            if (!navigator.mediaDevices.getUserMedia) {
+                alert("getUserMedia is not supported");
+                return;
+            }
+
+            console.log("Requesting microphone permission...");
+
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
             });
 
+            console.log("✅ Permission granted");
+
             const recorder = new MediaRecorder(stream);
+
+            console.log("✅ MediaRecorder created");
 
             mediaRecorderRef.current = recorder;
             audioChunksRef.current = [];
@@ -247,6 +265,8 @@ export default function Home() {
             };
 
             recorder.onstop = () => {
+                console.log("✅ Recording stopped");
+
                 const audioBlob = new Blob(audioChunksRef.current, {
                     type: "audio/webm",
                 });
@@ -256,21 +276,20 @@ export default function Home() {
                 setAudioBlobUrl(url);
                 setIsRecording(false);
 
-                stream.getTracks().forEach((track) => {
-                    track.stop();
-                });
+                stream.getTracks().forEach((track) => track.stop());
             };
 
             recorder.start();
 
+            console.log("✅ Recording started");
+
             setIsRecording(true);
 
         } catch (err) {
-            console.log("MIC ERROR:", err);
-            alert("Microphone access failed");
+            console.error(err);
+            alert("Microphone Error: " + err.message);
         }
     };
-
 
     const stopRecording = () => {
         if (
