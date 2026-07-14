@@ -1,7 +1,7 @@
 let io;
 
 const onlineUsers = new Map();
-
+const User = require("./models/User");
 const initializeSocket = (socketIO) => {
     io = socketIO;
 
@@ -59,9 +59,13 @@ const initializeSocket = (socketIO) => {
             }
         });
         // User disconnects
-        socket.on("disconnect", () => {
+        socket.on("disconnect", async () => {
             for (const [userId, socketId] of onlineUsers.entries()) {
                 if (socketId === socket.id) {
+                    await User.findByIdAndUpdate(userId, {
+                        lastSeen: new Date(),
+                    });
+                    console.log(`✅ Updated lastSeen for ${userId}`);
                     onlineUsers.delete(userId);
                     break;
                 }

@@ -27,9 +27,15 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    lastSeen: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,
   }
 );
+
 module.exports = mongoose.model("User", userSchema);

@@ -4,6 +4,31 @@ import socket from "../socket/socket";
 import { useEffect, useState, useRef } from "react";
 import EmojiPicker from "emoji-picker-react";
 import API from "../services/api";
+const formatLastSeen = (date) => {
+    if (!date) return "Offline";
+
+    const lastSeen = new Date(date);
+    const now = new Date();
+
+    const isToday =
+        lastSeen.toDateString() === now.toDateString();
+
+    if (isToday) {
+        return `Last seen ${lastSeen.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+        })}`;
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(now.getDate() - 1);
+
+    if (lastSeen.toDateString() === yesterday.toDateString()) {
+        return "Last seen yesterday";
+    }
+
+    return `Last seen ${lastSeen.toLocaleDateString()}`;
+};
 export default function Home() {
     const [menuOpen, setMenuOpen] = useState(null);
     const [users, setUsers] = useState([]);
@@ -30,6 +55,9 @@ export default function Home() {
             Notification.requestPermission();
         }
     }, []);
+    useEffect(() => {
+        fetchUsers();
+    }, [onlineUsers]);
 
     useEffect(() => {
         const token = localStorage.getItem("token");
@@ -49,7 +77,6 @@ export default function Home() {
                 if (exists) return prev;
                 return [...prev, newMessage];
             });
-
             if (
                 Notification.permission === "granted" &&
                 document.hidden
@@ -401,7 +428,7 @@ export default function Home() {
                                 >
                                     {onlineUsers.includes(user._id)
                                         ? "🟢 Online"
-                                        : "⚫ Offline"}
+                                        : formatLastSeen(user.lastSeen)}
                                 </p>
                             </div>
                         </div>
@@ -430,7 +457,7 @@ export default function Home() {
                                 ? "Typing..."
                                 : onlineUsers.includes(selectedUser._id)
                                     ? "🟢 Online"
-                                    : "⚫ Offline"}
+                                    : formatLastSeen(selectedUser.lastSeen)}
                         </p>
                     )}
                 </div>
