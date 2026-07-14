@@ -326,6 +326,10 @@ export default function Home() {
             console.log("Audio Blob:", audioBlob);
             console.log("Audio MIME:", audioBlob?.type);
             console.log("File in FormData:", formData.get("image"));
+            console.log("🎤 AudioBlob:", audioBlob);
+            console.log("🎤 Audio size:", audioBlob?.size);
+            console.log("🎤 Audio type:", audioBlob?.type);
+            console.log("🎤 FormData file:", formData.get("image"));
             const res = await API.post(
                 "/messages",
                 formData,
@@ -468,7 +472,12 @@ export default function Home() {
                                     )}
 
                                     {msg.text && <p>{msg.text}</p>}
-
+                                    <p className="text-[10px] mt-1 opacity-70 text-right">
+                                        {new Date(msg.createdAt).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                        })}
+                                    </p>
                                     {msg.sender === currentUser._id && (
                                         <>
                                             <div className="text-xs mt-2 text-right">

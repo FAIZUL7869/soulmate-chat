@@ -6,6 +6,9 @@ const { getReceiverSocket, getIO } = require("../socket");
 // Send Message
 const sendMessage = async (req, res) => {
     console.log("1. sendMessage called");
+    console.log("FILE RECEIVED:", req.file);
+    console.log("FILE MIME:", req.file?.mimetype);
+    console.log("FILE SIZE:", req.file?.size);
     console.log("req.file =", req.file);
     try {
         const { receiver, text } = req.body;
@@ -15,49 +18,62 @@ const sendMessage = async (req, res) => {
         let imageUrl = "";
         let voiceUrl = "";
 
+        // Upload Image
         if (req.file && req.file.mimetype.startsWith("image")) {
-            if (req.file && req.file.mimetype.startsWith("audio")) {
 
-                voiceUrl = await new Promise((resolve, reject) => {
-
-                    const stream = cloudinary.uploader.upload_stream(
-                        {
-                            resource_type: "video",
-                            folder: "soulmate-chat/voice-notes",
-                        },
-                        (error, result) => {
-
-                            if (error) return reject(error);
-
-                            resolve(result.secure_url);
-                        }
-                    );
-
-                    streamifier.createReadStream(req.file.buffer).pipe(stream);
-
-                });
-
-            }
-            console.log("3. Image found");
+            console.log("📷 Image found");
 
             imageUrl = await new Promise((resolve, reject) => {
+
                 const stream = cloudinary.uploader.upload_stream(
                     {
                         folder: "soulmate-chat",
                     },
                     (error, result) => {
+
                         if (error) return reject(error);
 
-                        console.log("4. Cloudinary finished");
+                        console.log("✅ Image uploaded");
 
                         resolve(result.secure_url);
+
                     }
                 );
 
                 streamifier.createReadStream(req.file.buffer).pipe(stream);
+
             });
+
         }
 
+        // Upload Voice
+        if (req.file && req.file.mimetype.startsWith("audio")) {
+
+            console.log("🎤 Voice found");
+
+            voiceUrl = await new Promise((resolve, reject) => {
+
+                const stream = cloudinary.uploader.upload_stream(
+                    {
+                        resource_type: "video",
+                        folder: "soulmate-chat/voice-notes",
+                    },
+                    (error, result) => {
+
+                        if (error) return reject(error);
+
+                        console.log("✅ Voice uploaded");
+
+                        resolve(result.secure_url);
+
+                    }
+                );
+
+                streamifier.createReadStream(req.file.buffer).pipe(stream);
+
+            });
+
+        }
         console.log("5. Before Message.create");
 
         if (!receiver) {
