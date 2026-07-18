@@ -28,6 +28,11 @@ const messageSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        replyTo: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Message",
+            default: null,
+        },
 
         // Message delivery status
         delivered: {

@@ -11,7 +11,9 @@ const sendMessage = async (req, res) => {
     console.log("FILE SIZE:", req.file?.size);
     console.log("req.file =", req.file);
     try {
-        const { receiver, text } = req.body;
+        const { receiver, text, replyTo } = req.body;
+        console.log("ReplyTo received:", replyTo);
+        console.log("Body:", req.body);
 
         console.log("2. Before Cloudinary");
 
@@ -83,17 +85,23 @@ const sendMessage = async (req, res) => {
         }
 
         console.log("Creating message...");
-
         const message = await Message.create({
             sender: req.user._id,
             receiver,
             text: text || "",
             image: imageUrl,
             voice: voiceUrl,
+            replyTo: replyTo || null,
             delivered: false,
             seen: false,
         });
-
+        await message.populate({
+            path: "replyTo",
+            populate: {
+                path: "sender",
+                select: "name",
+            },
+        });
         console.log("✅ Message created");
         console.log("Sending response...");
 
@@ -125,7 +133,9 @@ const getMessages = async (req, res) => {
                 { sender: req.user._id, receiver: userId },
                 { sender: userId, receiver: req.user._id },
             ],
-        }).sort({ createdAt: 1 });
+        })
+            .populate("replyTo")
+            .sort({ createdAt: 1 });
 
         res.status(200).json(messages);
 

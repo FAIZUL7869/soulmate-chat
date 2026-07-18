@@ -38,6 +38,7 @@ export default function Home() {
     const [selectedUser, setSelectedUser] = useState(null);
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState("");
+    const [replyMessage, setReplyMessage] = useState(null);
     const [onlineUsers, setOnlineUsers] = useState([]);
     const [typingUser, setTypingUser] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
@@ -49,12 +50,36 @@ export default function Home() {
     const selectedUserRef = useRef(null);
     const currentUser = JSON.parse(localStorage.getItem("user"));
     useEffect(() => {
+        selectedUserRef.current = selectedUser;
+    }, [selectedUser]);
+    useEffect(() => {
         fetchUsers();
 
         if ("Notification" in window && Notification.permission !== "granted") {
             Notification.requestPermission();
         }
     }, []);
+    useEffect(() => {
+        if (selectedUser) {
+            fetchMessages();
+        }
+    }, [selectedUser]);
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (!document.hidden && selectedUser) {
+                fetchMessages();
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange
+            );
+        };
+    }, [selectedUser]);
     useEffect(() => {
         fetchUsers();
     }, [onlineUsers]);
@@ -79,12 +104,16 @@ export default function Home() {
             });
             if (
                 Notification.permission === "granted" &&
-                document.hidden
+                document.hidden &&
+                newMessage.sender !== currentUser._id
             ) {
-                new Notification("SoulMate Chat", {
+                new Notification("💜 SoulMate Chat", {
                     body: newMessage.text
                         ? newMessage.text
-                        : "📷 Image received",
+                        : newMessage.image
+                            ? "📷 Image"
+                            : "🎤 Voice message",
+                    icon: "/favicon.ico",
                 });
             }
 
@@ -93,7 +122,10 @@ export default function Home() {
                 senderId: newMessage.sender,
             });
 
-            if (newMessage.sender === selectedUserRef.current?._id) {
+            if (
+                !document.hidden &&
+                newMessage.sender === selectedUserRef.current?._id
+            ) {
                 const token = localStorage.getItem("token");
 
                 API.patch(
@@ -200,9 +232,16 @@ export default function Home() {
                 },
             });
 
+            console.table(
+                res.data.map((user) => ({
+                    name: user.name,
+                    lastSeen: user.lastSeen,
+                }))
+            );
+
             setUsers(res.data);
 
-            if (res.data.length > 0) {
+            if (!selectedUser && res.data.length > 0) {
                 setSelectedUser(res.data[0]);
             }
         } catch (error) {
@@ -339,6 +378,9 @@ export default function Home() {
 
             formData.append("receiver", selectedUser._id);
             formData.append("text", text);
+            if (replyMessage) {
+                formData.append("replyTo", replyMessage._id);
+            }
 
             if (selectedImage) {
                 formData.append("image", selectedImage);
@@ -369,6 +411,8 @@ export default function Home() {
             );
             console.log("3. API Response", res);
             setMessages((prev) => [...prev, res.data.data]);
+            console.log("Reply response:", res.data.data);
+            setReplyMessage(null);
             console.log("4. Message added");
             setText("");
             setSelectedImage(null);
@@ -477,11 +521,32 @@ export default function Home() {
                                     }`}
                             >
                                 <div
+                                    onContextMenu={(e) => {
+                                        e.preventDefault();
+                                        setReplyMessage(msg);
+                                    }}
                                     className={`max-w-[70%] px-4 py-2 rounded-2xl ${msg.sender === currentUser._id
                                         ? "bg-blue-600 text-white"
                                         : "bg-white shadow"
                                         }`}
                                 >
+                                    {msg.replyTo && (
+                                        <div className="border-l-4 border-blue-400 bg-gray-100 text-black rounded p-2 mb-2">
+                                            <p className="text-xs font-semibold">
+                                                {msg.replyTo.sender?._id === currentUser._id
+                                                    ? "You"
+                                                    : msg.replyTo.sender?.name}
+                                            </p>
+
+                                            <p className="text-sm truncate">
+                                                {msg.replyTo.text
+                                                    ? msg.replyTo.text
+                                                    : msg.replyTo.image
+                                                        ? "📷 Image"
+                                                        : "🎤 Voice message"}
+                                            </p>
+                                        </div>
+                                    )}
                                     {msg.image && (
                                         <img
                                             src={msg.image}
@@ -621,6 +686,23 @@ export default function Home() {
                     >
                         😊
                     </button>
+                    {replyMessage && (
+                        <div className="bg-gray-100 border-l-4 border-blue-500 p-2 rounded mb-2 flex justify-between">
+                            <div>
+                                <p className="text-xs text-blue-600 font-semibold">
+                                    Replying to {replyMessage.sender === currentUser._id ? "You" : selectedUser?.name}
+                                </p>
+
+                                <p className="text-sm">
+                                    {replyMessage.text || "📷 Image"}
+                                </p>
+                            </div>
+
+                            <button onClick={() => setReplyMessage(null)}>
+                                ✕
+                            </button>
+                        </div>
+                    )}
                     <input
                         type="text"
                         placeholder="Type your message..."
