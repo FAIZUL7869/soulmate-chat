@@ -12,6 +12,8 @@ const sendMessage = async (req, res) => {
     console.log("req.file =", req.file);
     try {
         const { receiver, text, replyTo } = req.body;
+        console.log("req.file =", req.file);
+        console.log("MIME TYPE =", req.file?.mimetype);
         console.log("ReplyTo received:", replyTo);
         console.log("Body:", req.body);
 
@@ -19,6 +21,7 @@ const sendMessage = async (req, res) => {
 
         let imageUrl = "";
         let voiceUrl = "";
+        let videoUrl = "";
 
         // Upload Image
         if (req.file && req.file.mimetype.startsWith("image")) {
@@ -76,6 +79,35 @@ const sendMessage = async (req, res) => {
             });
 
         }
+        // Upload Video
+        console.log("Checking MIME:", req.file?.mimetype);
+        if (req.file && req.file.mimetype.includes("video")) {
+
+            console.log("🎥 Video found");
+
+            videoUrl = await new Promise((resolve, reject) => {
+
+                const stream = cloudinary.uploader.upload_stream(
+                    {
+                        resource_type: "video",
+                        folder: "soulmate-chat/videos",
+                    },
+                    (error, result) => {
+
+                        if (error) return reject(error);
+
+                        console.log("✅ Video uploaded");
+
+                        resolve(result.secure_url);
+
+                    }
+                );
+
+                streamifier.createReadStream(req.file.buffer).pipe(stream);
+
+            });
+
+        }
         console.log("5. Before Message.create");
 
         if (!receiver) {
@@ -91,6 +123,7 @@ const sendMessage = async (req, res) => {
             text: text || "",
             image: imageUrl,
             voice: voiceUrl,
+            video: videoUrl,
             replyTo: replyTo || null,
             delivered: false,
             seen: false,

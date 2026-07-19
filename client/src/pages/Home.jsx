@@ -43,6 +43,7 @@ export default function Home() {
     const [onlineUsers, setOnlineUsers] = useState([]);
     const [typingUser, setTypingUser] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
+    const [selectedVideo, setSelectedVideo] = useState(null);
     const [showEmoji, setShowEmoji] = useState(false);
     const fileInputRef = useRef(null);
     const mediaRecorderRef = useRef(null);
@@ -378,7 +379,7 @@ export default function Home() {
     };
     const sendMessage = async () => {
         console.log("🚀 Send button clicked");
-        if (!text.trim() && !selectedImage && !audioBlob) return;
+        if (!text.trim() && !selectedImage && !selectedVideo && !audioBlob) return;
         console.log("1. sendMessage started");
         try {
             const token = localStorage.getItem("token");
@@ -391,15 +392,24 @@ export default function Home() {
                 formData.append("replyTo", replyMessage._id);
             }
 
+            // Upload Image
             if (selectedImage) {
                 formData.append("image", selectedImage);
             }
 
+            // Upload Video
+            if (selectedVideo) {
+                formData.append("image", selectedVideo);
+            }
+
+            // Upload Voice
             if (audioBlob) {
                 formData.append("image", audioBlob, "voice.webm");
             }
             console.log("Selected Image:", selectedImage);
             console.log("Image in FormData:", formData.get("image"));
+            console.log("Selected Video:", selectedVideo);
+            console.log("🎥 Video in FormData:", formData.get("image"));
             console.log("2. Before API");
             console.log("Audio Blob:", audioBlob);
             console.log("Audio MIME:", audioBlob?.type);
@@ -491,8 +501,8 @@ export default function Home() {
 
                                 <p
                                     className={`text-sm ${onlineUsers.includes(user._id)
-                                            ? "text-green-600"
-                                            : "text-gray-500"
+                                        ? "text-green-600"
+                                        : "text-gray-500"
                                         }`}
                                 >
                                     {onlineUsers.includes(user._id)
@@ -579,6 +589,15 @@ export default function Home() {
                                             className="w-56 rounded-lg mb-2"
                                         />
                                     )}
+                                    {msg.video && (
+                                        <video
+                                            controls
+                                            className="w-64 rounded-lg mb-2"
+                                        >
+                                            <source src={msg.video} type="video/mp4" />
+                                            Your browser does not support the video tag.
+                                        </video>
+                                    )}
 
                                     {msg.voice && (
                                         <audio
@@ -644,20 +663,33 @@ export default function Home() {
                     <div ref={messagesEndRef}></div>
 
                 </div>
-                {selectedImage && (
+                {(selectedImage || selectedVideo) && (
                     <div className="bg-white border-t border-gray-200 px-5 py-3">
 
                         <div className="relative inline-block">
 
-                            <img
-                                src={URL.createObjectURL(selectedImage)}
-                                alt="Preview"
-                                className="w-48 h-48 object-cover rounded-xl shadow"
-                            />
+                            {selectedImage ? (
+                                <img
+                                    src={URL.createObjectURL(selectedImage)}
+                                    alt="Preview"
+                                    className="w-48 h-48 object-cover rounded-xl shadow"
+                                />
+                            ) : (
+                                <video
+                                    controls
+                                    className="w-64 rounded-xl shadow"
+                                >
+                                    <source
+                                        src={URL.createObjectURL(selectedVideo)}
+                                        type={selectedVideo.type}
+                                    />
+                                </video>
+                            )}
 
                             <button
                                 onClick={() => {
                                     setSelectedImage(null);
+                                    setSelectedVideo(null);
 
                                     if (fileInputRef.current) {
                                         fileInputRef.current.value = "";
@@ -761,11 +793,25 @@ export default function Home() {
                     <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/*"
+                        accept="image/*,video/*"
                         className="hidden"
                         onChange={(e) => {
-                            if (e.target.files[0]) {
-                                setSelectedImage(e.target.files[0]);
+                            const file = e.target.files[0];
+
+                            console.log("Selected file:", file);
+
+                            if (!file) return;
+
+                            console.log("File type:", file.type);
+
+                            if (file.type.startsWith("image")) {
+                                console.log("📷 Image selected");
+                                setSelectedImage(file);
+                                setSelectedVideo(null);
+                            } else if (file.type.startsWith("video")) {
+                                console.log("🎥 Video selected");
+                                setSelectedVideo(file);
+                                setSelectedImage(null);
                             }
                         }}
                     />

@@ -28,6 +28,10 @@ const messageSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        video: {
+            type: String,
+            default: "",
+        },
         replyTo: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Message",
