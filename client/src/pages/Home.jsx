@@ -99,19 +99,29 @@ export default function Home() {
         });
 
         socket.on("receiveMessage", (newMessage) => {
-            setMessages((prev) => {
-                const exists = prev.some((msg) => msg._id === newMessage._id);
-                if (exists) return prev;
-                return [...prev, newMessage];
-            });
+            console.log("📩 Received:", newMessage);
             const currentChatId = selectedUserRef.current?._id;
 
-            if (newMessage.sender !== currentChatId) {
+            if (
+                (newMessage.sender === currentChatId &&
+                    newMessage.receiver === currentUser._id) ||
+                (newMessage.sender === currentUser._id &&
+                    newMessage.receiver === currentChatId)
+            ) {
+                setMessages((prev) => {
+                    const exists = prev.some((msg) => msg._id === newMessage._id);
+                    if (exists) return prev;
+                    return [...prev, newMessage];
+                });
+            } else {
                 setUnreadCounts((prev) => ({
                     ...prev,
                     [newMessage.sender]: (prev[newMessage.sender] || 0) + 1,
                 }));
             }
+
+
+
             if (
                 Notification.permission === "granted" &&
                 document.hidden &&
