@@ -437,6 +437,7 @@ export default function Home() {
             setSelectedImage(null);
             setAudioBlob(null);
             setAudioBlobUrl(null);
+            setSelectedVideo(null);
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
             }
