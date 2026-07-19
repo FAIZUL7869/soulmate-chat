@@ -39,6 +39,7 @@ export default function Home() {
     const [messages, setMessages] = useState([]);
     const [text, setText] = useState("");
     const [replyMessage, setReplyMessage] = useState(null);
+    const [unreadCounts, setUnreadCounts] = useState({});
     const [onlineUsers, setOnlineUsers] = useState([]);
     const [typingUser, setTypingUser] = useState(null);
     const [selectedImage, setSelectedImage] = useState(null);
@@ -102,6 +103,14 @@ export default function Home() {
                 if (exists) return prev;
                 return [...prev, newMessage];
             });
+            const currentChatId = selectedUserRef.current?._id;
+
+            if (newMessage.sender !== currentChatId) {
+                setUnreadCounts((prev) => ({
+                    ...prev,
+                    [newMessage.sender]: (prev[newMessage.sender] || 0) + 1,
+                }));
+            }
             if (
                 Notification.permission === "granted" &&
                 document.hidden &&
@@ -447,7 +456,14 @@ export default function Home() {
                     {users.map((user) => (
                         <div
                             key={user._id}
-                            onClick={() => setSelectedUser(user)}
+                            onClick={() => {
+                                setSelectedUser(user);
+
+                                setUnreadCounts((prev) => ({
+                                    ...prev,
+                                    [user._id]: 0,
+                                }));
+                            }}
                             className={`flex items-center gap-3 p-4 border-b cursor-pointer transition ${selectedUser?._id === user._id
                                 ? "bg-blue-100"
                                 : "hover:bg-slate-100"
@@ -462,12 +478,21 @@ export default function Home() {
                                 className="w-12 h-12 rounded-full object-cover"
                             />
 
-                            <div>
-                                <h2 className="font-semibold">{user.name}</h2>
+                            <div className="flex-1">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="font-semibold">{user.name}</h2>
+
+                                    {unreadCounts[user._id] > 0 && (
+                                        <span className="bg-blue-600 text-white text-xs rounded-full min-w-6 h-6 px-2 flex items-center justify-center">
+                                            {unreadCounts[user._id]}
+                                        </span>
+                                    )}
+                                </div>
+
                                 <p
                                     className={`text-sm ${onlineUsers.includes(user._id)
-                                        ? "text-green-600"
-                                        : "text-gray-500"
+                                            ? "text-green-600"
+                                            : "text-gray-500"
                                         }`}
                                 >
                                     {onlineUsers.includes(user._id)
