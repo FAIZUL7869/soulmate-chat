@@ -1,0 +1,18 @@
+[33m599621a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Add persistent pin chat feature with MongoDB support
+[33m3e08849[m Added video sharing and stabilized chat features
+[33m82ce774[m Add video upload, preview and chat playback
+[33mdc7044c[m Fix video upload
+[33m3bc535a[m Added Whatsapp-style unread message counter
+[33me459046[m Added reply message feature
+[33m9800051[m Added last seen support
+[33m0501225[m Add message timestamps preparation and save current progress
+[33m84a2195[m Debug voice note upload
+[33md29b0bf[m Work in progress: voice notes integration
+[33m074a76a[m Fix voice note sending
+[33mafdd903[m Add voice note support
+[33m2872483[m Stable version before voice notes
+[33mb14f307[m Fix React Router refresh on Vercel
+[33m7570584[m Fix production API and socket URLs
+[33mfb0efcf[m Add Register page
+[33m1fcb8e4[m Fix User model filename
+[33m7a85f94[m Initial commit - SoulMate Chat ready for deployment

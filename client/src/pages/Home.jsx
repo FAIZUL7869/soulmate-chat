@@ -50,6 +50,8 @@ export default function Home() {
     const audioChunksRef = useRef([]);
     const messagesEndRef = useRef(null);
     const selectedUserRef = useRef(null);
+    const typingRef = useRef(false);
+    const typingTimeoutRef = useRef(null);
     const currentUser = JSON.parse(localStorage.getItem("user"));
     useEffect(() => {
         selectedUserRef.current = selectedUser;
@@ -778,18 +780,22 @@ export default function Home() {
                         onChange={(e) => {
                             setText(e.target.value);
 
-                            const user = JSON.parse(localStorage.getItem("user"));
+                            if (!typingRef.current) {
+                                typingRef.current = true;
 
-                            socket.emit("typing", {
-                                senderId: user._id,
-                                receiverId: selectedUser._id,
-                            });
+                                socket.emit("typing", {
+                                    senderId: currentUser._id,
+                                    receiverId: selectedUser._id,
+                                });
+                            }
 
-                            clearTimeout(window.typingTimeout);
+                            clearTimeout(typingTimeoutRef.current);
 
-                            window.typingTimeout = setTimeout(() => {
+                            typingTimeoutRef.current = setTimeout(() => {
+                                typingRef.current = false;
+
                                 socket.emit("stopTyping", {
-                                    senderId: user._id,
+                                    senderId: currentUser._id,
                                     receiverId: selectedUser._id,
                                 });
                             }, 1000);
